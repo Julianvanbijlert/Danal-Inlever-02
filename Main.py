@@ -1,6 +1,7 @@
 # Assignment 2
 import pandas as pd
 
+
 # Specify the path to your CSV file
 csv_path = "query_product.csv"
 
@@ -9,10 +10,54 @@ df = pd.read_csv(csv_path, encoding="latin1")
 
 df
 df['relevance'].describe()
+
+
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+
+
+def filter_stopwords_from_csv(input_file, output_file, text_column):
+    # Lees de CSV in een DataFrame
+    df = pd.read_csv(input_file, encoding='latin1')
+
+    # Haal de Engelse stopwoorden op
+    stop_words = set(stopwords.words('english'))
+
+    def filter_stopwords(text):
+        # Tokenize de tekst in woorden
+        words = word_tokenize(text)
+        # Filter de stopwoorden uit de lijst met woorden
+        filtered_words = [word for word in words if word.lower() not in stop_words]
+        # Voeg de gefilterde woorden samen tot een string
+        return ' '.join(filtered_words)
+
+    # Pas de filterfunctie toe op de opgegeven tekstkolom
+    df[text_column] = df[text_column].astype(str).apply(filter_stopwords)
+
+    # Schrijf de gewijzigde DataFrame naar een nieuw CSV-bestand
+    df.to_csv(output_file, index=False)
+
+
+
+# Voorbeeldgebruik
+input_file = 'product_descriptions.csv'  # CSV-bestand met beschrijvingen
+output_file = 'Updated_product_description.csv'  # CSV-bestand waar de gefilterde beschrijvingen worden opgeslagen
+text_column = "product_description"  # Naam van de kolom die de beschrijvingen bevat
+filter_stopwords_from_csv(input_file, output_file, text_column)
+
 import matplotlib.pyplot as plt
 
 # Assuming you have a DataFrame named data_frame
 # and you want to visualize a column named 'column_name'
+
+
+
+
+
+
+
+
 
 # Create a histogram of the column's values
 plt.hist(df['relevance'], bins=5)
@@ -21,6 +66,9 @@ plt.hist(df['relevance'], bins=5)
 plt.xlabel('Relevance')
 plt.ylabel('Frequency')
 plt.title('Histogram of Relevance Score')
+
+
+
 
 # Display the plot
 plt.show()
@@ -32,6 +80,9 @@ training_size = 50000
 
 # Split the DataFrame into training and test sets
 train_data, test_data = train_test_split(df, test_size=(len(df) - training_size), random_state=42)
+
+
+
 
 # Display the training data
 train_data
@@ -83,6 +134,46 @@ from collections import Counter
 weight_counter = Counter(y_test)
 weights = [weight_counter[i]/10 for i in y_test]
 
+
+
+print('begin')
+df = pd.read_csv('query_product.csv', encoding='latin1')
+print('klaar met 1')
+id_list = df['id'].tolist()
+print('klaar met 2')
+product_uid_list = df['product_uid'].tolist()
+print('klaar met 3')
+product_title_list = df['product_title'].tolist()
+print('klaar met 4')
+search_term_list = df['search_term'].tolist()
+print('klaar met 5')
+relevance_list = df['relevance'].tolist()
+print('klaar met lezen')
+
+
+def count_frequencies(column):   
+    lijst = dict()               
+    for key in column:          
+        #print('item' + str(n) + 'van de' + str(len(column)))
+        if key not in lijst:    
+            lijst[key] = 1      
+        else:                    
+            lijst[key] += 1     
+    return lijst                
+
+
+
+result1 = count_frequencies(product_uid_list)
+result2 = count_frequencies(search_term_list)
+
+print("term frequency from productid:", result1)
+print("term frequency from searchterms:", result2)
+
+
+
+
+
+
 plt.scatter(test_data['all_words_in_title'], y_test, label='Actual', s=weights)
 plt.plot(test_data['all_words_in_title'], y_pred, color='red', label='Fitted Line')
 plt.xlabel('Do all query terms occur in the product title?')
@@ -90,3 +181,4 @@ plt.ylabel('Relevance Score')
 plt.title('Linear Regression: Fitted Line')
 plt.legend()
 plt.show()
+
