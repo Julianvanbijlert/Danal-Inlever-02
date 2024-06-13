@@ -1,17 +1,76 @@
 # Assignment 2
 import pandas as pd
-
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.metrics import accuracy_score, mean_squared_error, classification_report
 
 # Specify the path to your CSV file
 csv_path = "query_product.csv"
+pd_path = 'product_descriptions.csv'
 
 # Read the CSV file into a pandas DataFrame
 df = pd.read_csv(csv_path, encoding="latin1")
+product_description_text = pd.read_csv(pd_path, encoding='latin1')
+
+# Merge the two datasets on product_uid
+merged_data = pd.merge(df, product_description_text, on='product_uid')
+
+# For simplicity, let's assume we are using 'relevance' as the target for regression
+# and creating a binary target for classification
+X = merged_data[['product_uid']].values  # Using product_uid as feature for simplicity
+y_reg = merged_data['relevance'].values
+y_log = (merged_data['relevance'] > 2.5).astype(int)  # Binary target based on relevance threshold
+
+# Split the data into training and testing sets
+X_reg_train, X_reg_test, y_reg_train, y_reg_test = train_test_split(X, y_reg, test_size=50000, random_state=42)
+X_log_train, X_log_test, y_log_train, y_log_test = train_test_split(X, y_log, test_size=50000, random_state=42)
+
+# Linear Regression Model
+lin_reg = LinearRegression()
+lin_reg.fit(X_reg_train, y_reg_train)
+y_reg_pred = lin_reg.predict(X_reg_test)
+
+# Logistic Regression Model
+log_reg = LogisticRegression()
+log_reg.fit(X_log_train, y_log_train)
+y_log_pred = log_reg.predict(X_log_test)
+
+# Evaluate Linear Regression
+mse = mean_squared_error(y_reg_test, y_reg_pred)
+print("Linear Regression Mean Squared Error:", mse)
+
+# Evaluate Logistic Regression
+accuracy = accuracy_score(y_log_test, y_log_pred)
+print("Logistic Regression Accuracy:", accuracy)
+print(classification_report(y_log_test, y_log_pred))
+
+# Plot results for Linear Regression
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+plt.scatter(X_reg_test, y_reg_test, color='blue', label='Actual')
+plt.plot(X_reg_test, y_reg_pred, color='red', linewidth=2, label='Predicted')
+plt.title('Linear Regression')
+plt.xlabel('Product UID')
+plt.ylabel('Relevance')
+plt.legend()
+
+# Plot results for Logistic Regression
+plt.subplot(1, 2, 2)
+plt.scatter(X_log_test, y_log_test, color='blue', label='Actual')
+plt.scatter(X_log_test, y_log_pred, color='red', marker='x', label='Predicted')
+plt.title('Logistic Regression')
+plt.xlabel('Product UID')
+plt.ylabel('Is Expensive')
+plt.legend()
+
+plt.show()
 
 df
 df['relevance'].describe()
 
-
+df.head()
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -117,7 +176,7 @@ results = model.fit()
 
 # Print the model summary
 print(results.summary())
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error, accuracy_score
 
 X_test = test_data['all_words_in_title']
 y_test = test_data['relevance']
