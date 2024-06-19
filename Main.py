@@ -5,10 +5,11 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import mean_squared_error, precision_recall_fscore_support, accuracy_score, classification_report
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import statsmodels.api as sm
 
 # Specify the paths to your CSV files
 csv_path = "query_product.csv"
-pd_path = 'Updated_product_description.csXv'
+pd_path = 'Updated_product_description.csv'
 training_size = 50000
 
 # Read the CSV files into pandas DataFrames
@@ -88,8 +89,9 @@ merged_data['log_precision'] = precision
 merged_data['log_recall'] = recall
 merged_data['log_f1'] = f1
 
-# Save the separate feature information to a new CSV file for inspection
-merged_data.to_csv('feature_engineering_output.csv', index=False)
+# Print a summary of the dataset
+print("Summary of the dataset with new features:")
+print(merged_data.describe())
 
 # Define feature matrix X and target vector y for linear regression
 features = [
@@ -106,25 +108,30 @@ features = [
     'log_recall',
     'log_f1'
 ]
-X = merged_data[features].values
-y = merged_data['relevance'].values
+X = merged_data[features]
+y = merged_data['relevance']
 
-# Split the data into training and testing sets for linear regression
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=training_size, random_state=42)
+# Print the first few rows of the feature matrix
+print("\nFirst few rows of the feature matrix (X):")
+print(X.head())
 
-# Linear Regression Model
-lin_reg = LinearRegression()
-lin_reg.fit(X_train, y_train)
-y_pred = lin_reg.predict(X_test)
+# Add a constant term to the feature matrix for statsmodels
+X = sm.add_constant(X)
 
-# Evaluate Linear Regression
-mse = mean_squared_error(y_test, y_pred)
-print("Linear Regression Mean Squared Error:", mse)
+# Create a linear regression model using statsmodels
+model = sm.OLS(y, X)
+
+# Fit the model to the data
+results = model.fit()
+
+# Print the model summary
+print("\nLinear Regression Model Summary:")
+print(results.summary())
 
 # Plot results for Linear Regression
 plt.figure(figsize=(12, 5))
-plt.scatter(range(len(y_test)), y_test, color='blue', label='Actual')
-plt.scatter(range(len(y_pred)), y_pred, color='red', marker='x', label='Predicted')
+plt.scatter(range(len(y_log_test)), y_log_test, color='blue', label='Actual')
+plt.scatter(range(len(y_log_pred)), y_log_pred, color='red', marker='x', label='Predicted')
 plt.title('Linear Regression')
 plt.xlabel('Sample index')
 plt.ylabel('Relevance')
@@ -170,7 +177,7 @@ def filter_stopwords_from_csv(input_file, output_file, text_column):
 input_file = 'product_descriptions.csv'  # CSV-bestand met beschrijvingen
 output_file = 'Updated_product_description.csv'  # CSV-bestand waar de gefilterde beschrijvingen worden opgeslagen
 text_column = "product_description"  # Naam van de kolom die de beschrijvingen bevat
-filter_stopwords_from_csv(input_file, output_file, text_column)
+#filter_stopwords_from_csv(input_file, output_file, text_column)
 
 import matplotlib.pyplot as plt
 
