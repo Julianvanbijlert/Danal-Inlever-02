@@ -1,72 +1,139 @@
-# Assignment 2
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.metrics import accuracy_score, mean_squared_error, classification_report
+from sklearn.metrics import mean_squared_error, precision_recall_fscore_support, accuracy_score, classification_report
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-# Specify the path to your CSV file
+# Specify the paths to your CSV files
 csv_path = "query_product.csv"
-pd_path = 'product_descriptions.csv'
+pd_path = 'Updated_product_description.csXv'
+training_size = 50000
 
-# Read the CSV file into a pandas DataFrame
+# Read the CSV files into pandas DataFrames
 df = pd.read_csv(csv_path, encoding="latin1")
 product_description_text = pd.read_csv(pd_path, encoding='latin1')
 
 # Merge the two datasets on product_uid
 merged_data = pd.merge(df, product_description_text, on='product_uid')
 
-# For simplicity, let's assume we are using 'relevance' as the target for regression
-# and creating a binary target for classification
-X = merged_data[['product_uid']].values  # Using product_uid as feature for simplicity
-y_reg = merged_data['relevance'].values
-y_log = (merged_data['relevance'] > 2.5).astype(int)  # Binary target based on relevance threshold
+# Function to compute if all search terms are in the product name
+def all_terms_in_name(row):
+    search_terms = set(row['search_term'].lower().split())
+    product_name = set(row['product_title'].lower().split())
+    return int(search_terms.issubset(product_name))
 
-# Split the data into training and testing sets
-X_reg_train, X_reg_test, y_reg_train, y_reg_test = train_test_split(X, y_reg, test_size=50000, random_state=42)
-X_log_train, X_log_test, y_log_train, y_log_test = train_test_split(X, y_log, test_size=50000, random_state=42)
+# Function to compute the percentage of search terms in the product name
+def percent_terms_in_name(row):
+    search_terms = set(row['search_term'].lower().split())
+    product_name = set(row['product_title'].lower().split())
+    return len(search_terms.intersection(product_name)) / len(search_terms)
 
-# Linear Regression Model
-lin_reg = LinearRegression()
-lin_reg.fit(X_reg_train, y_reg_train)
-y_reg_pred = lin_reg.predict(X_reg_test)
+# Function to compute the term frequency of the product
+def term_frequency(column):
+    freq = column.value_counts().to_dict()
+    return column.map(freq)
+
+# Function to compute the percentage of similar words in text
+def percent_similar_words(text1, text2):
+    vectorizer = CountVectorizer().fit_transform([text1, text2])
+    vectors = vectorizer.toarray()
+    csim = cosine_similarity(vectors)
+    return csim[0, 1]
+
+# Function to compute if all search terms are in the product description
+def all_terms_in_description(row):
+    search_terms = set(row['search_term'].lower().split())
+    description = set(row['product_description'].lower().split())
+    return int(search_terms.issubset(description))
+
+# Function to compute the percentage of search terms in the description
+def percent_terms_in_description(row):
+    search_terms = set(row['search_term'].lower().split())
+    description = set(row['product_description'].lower().split())
+    return len(search_terms.intersection(description)) / len(search_terms)
+# Apply functions to create new features
+merged_data['all_terms_in_name'] = merged_data.apply(all_terms_in_name, axis=1)
+merged_data['percent_terms_in_name'] = merged_data.apply(percent_terms_in_name, axis=1)
+merged_data['term_frequency_product'] = term_frequency(merged_data['product_uid'])
+merged_data['percent_similar_words_name'] = merged_data.apply(lambda row: percent_similar_words(row['search_term'], row['product_title']), axis=1)
+merged_data['all_terms_in_description'] = merged_data.apply(all_terms_in_description, axis=1)
+merged_data['percent_terms_in_description'] = merged_data.apply(percent_terms_in_description, axis=1)
+merged_data['description_length'] = merged_data['product_description'].apply(lambda x: len(x.split()))
+
+# Default relevance score for missing values
+merged_data['relevance_score'] = merged_data['relevance'].fillna(2)
+
+# Define binary target for logistic regression
+merged_data['relevance_binary'] = (merged_data['relevance'] > 2.5).astype(int)
+
+# Split the data for logistic regression
+X_log = merged_data[['product_uid']].values  # Using product_uid as a placeholder feature
+y_log = merged_data['relevance_binary'].values
+X_log_train, X_log_test, y_log_train, y_log_test = train_test_split(X_log, y_log, test_size=training_size, random_state=42)
 
 # Logistic Regression Model
 log_reg = LogisticRegression()
 log_reg.fit(X_log_train, y_log_train)
 y_log_pred = log_reg.predict(X_log_test)
 
-# Evaluate Linear Regression
-mse = mean_squared_error(y_reg_test, y_reg_pred)
-print("Linear Regression Mean Squared Error:", mse)
+# Compute logistic regression metrics
+log_accuracy = accuracy_score(y_log_test, y_log_pred)
+precision, recall, f1, _ = precision_recall_fscore_support(y_log_test, y_log_pred, average='binary')
 
-# Evaluate Logistic Regression
-accuracy = accuracy_score(y_log_test, y_log_pred)
-print("Logistic Regression Accuracy:", accuracy)
-print(classification_report(y_log_test, y_log_pred))
+# Add logistic regression metrics to the dataset
+merged_data['log_accuracy'] = log_accuracy
+merged_data['log_precision'] = precision
+merged_data['log_recall'] = recall
+merged_data['log_f1'] = f1
+
+# Save the separate feature information to a new CSV file for inspection
+merged_data.to_csv('feature_engineering_output.csv', index=False)
+
+# Define feature matrix X and target vector y for linear regression
+features = [
+    'all_terms_in_name',
+    'percent_terms_in_name',
+    'relevance_score',
+    'term_frequency_product',
+    'percent_similar_words_name',
+    'all_terms_in_description',
+    'percent_terms_in_description',
+    'description_length',
+    'log_accuracy',
+    'log_precision',
+    'log_recall',
+    'log_f1'
+]
+X = merged_data[features].values
+y = merged_data['relevance'].values
+
+# Split the data into training and testing sets for linear regression
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=training_size, random_state=42)
+
+# Linear Regression Model
+lin_reg = LinearRegression()
+lin_reg.fit(X_train, y_train)
+y_pred = lin_reg.predict(X_test)
+
+# Evaluate Linear Regression
+mse = mean_squared_error(y_test, y_pred)
+print("Linear Regression Mean Squared Error:", mse)
 
 # Plot results for Linear Regression
 plt.figure(figsize=(12, 5))
-
-plt.subplot(1, 2, 1)
-plt.scatter(X_reg_test, y_reg_test, color='blue', label='Actual')
-plt.plot(X_reg_test, y_reg_pred, color='red', linewidth=2, label='Predicted')
+plt.scatter(range(len(y_test)), y_test, color='blue', label='Actual')
+plt.scatter(range(len(y_pred)), y_pred, color='red', marker='x', label='Predicted')
 plt.title('Linear Regression')
-plt.xlabel('Product UID')
+plt.xlabel('Sample index')
 plt.ylabel('Relevance')
 plt.legend()
-
-# Plot results for Logistic Regression
-plt.subplot(1, 2, 2)
-plt.scatter(X_log_test, y_log_test, color='blue', label='Actual')
-plt.scatter(X_log_test, y_log_pred, color='red', marker='x', label='Predicted')
-plt.title('Logistic Regression')
-plt.xlabel('Product UID')
-plt.ylabel('Is Expensive')
-plt.legend()
-
 plt.show()
 
+
+
+# different code --------------------------------
 df
 df['relevance'].describe()
 
@@ -138,7 +205,7 @@ from sklearn.model_selection import train_test_split
 training_size = 50000
 
 # Split the DataFrame into training and test sets
-train_data, test_data = train_test_split(df, test_size=(len(df) - training_size), random_state=42)
+train_data, test_data = train_test_split(df, test_size=training_size, random_state=42)
 
 
 
